@@ -1,0 +1,10 @@
+filename,brand_name,class_type,alcohol_content,net_contents,producer,beverage_class,origin_country
+old-tom.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol.,750 mL,"Old Tom Distillery, Bardstown, KY",spirits,
+chateau-margaux.jpg,Chateau Margaux,Red Wine,13% Alc./Vol.,750 mL,"Chateau Margaux, Margaux, France",wine,France
+wine-low-abv.jpg,MEADOWBROOK CELLARS,Chardonnay,12.5% Alc./Vol.,750 mL,"Meadowbrook Cellars, Sonoma, CA",wine,
+wine-low-abv-missing.jpg,MEADOWBROOK CELLARS,Chardonnay,12.5% Alc./Vol.,750 mL,"Meadowbrook Cellars, Sonoma, CA",wine,
+beer-ipa.jpg,HOPYARD BREWING CO.,West Coast India Pale Ale,6.8% Alc./Vol.,355 mL,"Hopyard Brewing Co., Portland, OR",beer,
+altered-warning.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol.,750 mL,"Old Tom Distillery, Bardstown, KY",spirits,
+regular-warning.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol.,750 mL,"Old Tom Distillery, Bardstown, KY",spirits,
+wrong-abv.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol.,750 mL,"Old Tom Distillery, Bardstown, KY",spirits,
+riverstone-ai.jpg,Riverstone Distillery,Kentucky Straight Bourbon Whiskey,43% Alc./Vol.,750 mL,"Riverstone Distillery, Loretto, Kentucky",spirits,
