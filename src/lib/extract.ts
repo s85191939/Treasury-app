@@ -1,7 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { ExtractedLabel } from "./types";
 
-const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+const MODEL = process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.5";
+const BASE_URL =
+  process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
 
 const SYSTEM_PROMPT = `You are an expert assistant for the U.S. Alcohol and Tobacco Tax and Trade Bureau (TTB) label compliance program. You read photographs or scans of alcohol beverage labels and extract the regulated fields exactly as they appear.
 
@@ -10,53 +11,55 @@ TTB labels must include: brand name, class/type designation, alcohol content, ne
 The canonical Government Warning text is:
 "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
 
-You always return ONLY a tool call. Capture text verbatim as it appears on the label — preserve original capitalization, punctuation, and spacing for the government warning so a downstream comparator can do a strict check. For other fields, extract the visible text. If a field is not visible, return null. Do not guess.`;
+You always answer by calling the report_label_fields tool. Capture text verbatim — preserve original capitalization, punctuation, and spacing for the government warning so a downstream comparator can do a strict check. For other fields, extract the visible text. If a field is not visible on the label, return an empty string for that field. Do not guess.`;
 
-const TOOLS: Anthropic.Messages.Tool[] = [
-  {
+const TOOL_DEF = {
+  type: "function" as const,
+  function: {
     name: "report_label_fields",
-    description:
-      "Report the fields extracted from the alcohol beverage label image.",
-    input_schema: {
+    description: "Report the fields extracted from the alcohol beverage label image.",
+    parameters: {
       type: "object",
       properties: {
         brand_name: {
-          type: ["string", "null"],
-          description: "Brand name as printed on the label.",
+          type: "string",
+          description:
+            "Brand name as printed on the label. Empty string if not visible.",
         },
         class_type: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Class/type designation, e.g. 'Kentucky Straight Bourbon Whiskey', 'Cabernet Sauvignon', 'India Pale Ale'.",
+            "Class/type designation, e.g. 'Kentucky Straight Bourbon Whiskey', 'Cabernet Sauvignon', 'India Pale Ale'. Empty string if not visible.",
         },
         alcohol_content: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Alcohol-by-volume as printed, e.g. '45% Alc./Vol. (90 Proof)' or '12.5% ABV'.",
+            "Alcohol-by-volume as printed, e.g. '45% Alc./Vol. (90 Proof)'. Empty string if not visible.",
         },
         net_contents: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Net contents as printed, e.g. '750 mL', '12 FL OZ', '1.75 L'.",
+            "Net contents as printed, e.g. '750 mL', '12 FL OZ'. Empty string if not visible.",
         },
         producer_name: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Name of the bottler, distiller, or producer as printed.",
+            "Name of the bottler, distiller, or producer as printed. Empty string if not visible.",
         },
         producer_address: {
-          type: ["string", "null"],
-          description: "Address of the producer/bottler if printed.",
+          type: "string",
+          description:
+            "Address of the producer/bottler if printed. Empty string if not visible.",
         },
         country_of_origin: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Country of origin if printed (typically required for imports).",
+            "Country of origin if printed (typically required for imports). Empty string if not visible.",
         },
         government_warning: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "The full Government Warning statement as it appears on the label, verbatim. Preserve capitalization and punctuation. Null if not present.",
+            "The full Government Warning statement as it appears on the label, verbatim. Preserve capitalization and punctuation. Empty string if not present.",
         },
         warning_header_in_all_caps: {
           type: "boolean",
@@ -64,9 +67,9 @@ const TOOLS: Anthropic.Messages.Tool[] = [
             "True iff the warning text begins with the exact characters 'GOVERNMENT WARNING:' in all uppercase, as TTB requires.",
         },
         notes: {
-          type: ["string", "null"],
+          type: "string",
           description:
-            "Optional brief notes about image quality, occlusion, or anything an agent should review manually.",
+            "Optional brief notes about image quality, occlusion, or anything an agent should review manually. Empty string if nothing to flag.",
         },
       },
       required: [
@@ -84,77 +87,119 @@ const TOOLS: Anthropic.Messages.Tool[] = [
       additionalProperties: false,
     },
   },
-];
+};
 
-function client(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set. Add it to .env.local before running.",
-    );
-  }
-  return new Anthropic({ apiKey });
+function emptyToNull(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+interface OpenRouterResponse {
+  choices?: Array<{
+    message?: {
+      tool_calls?: Array<{
+        function?: { name?: string; arguments?: string };
+      }>;
+      content?: string;
+    };
+  }>;
+  error?: { message?: string; code?: number | string };
 }
 
 export async function extractLabel(
   imageBase64: string,
   mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif",
 ): Promise<ExtractedLabel> {
-  const anthropic = client();
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    tools: TOOLS,
-    tool_choice: { type: "tool", name: "report_label_fields" },
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: imageBase64,
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENROUTER_API_KEY is not set. Add it to .env.local before running.",
+    );
+  }
+
+  const dataUrl = `data:${mediaType};base64,${imageBase64}`;
+  const referer = process.env.OPENROUTER_HTTP_REFERER ?? "http://localhost:3000";
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": referer,
+      "X-Title": "TTB Label Verifier",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      temperature: 0,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: dataUrl },
             },
-          },
-          {
-            type: "text",
-            text: "Extract the regulated TTB label fields from this image. Return the verbatim Government Warning text if present.",
-          },
-        ],
+            {
+              type: "text",
+              text: "Extract the regulated TTB label fields from this image. Return the verbatim Government Warning text if present.",
+            },
+          ],
+        },
+      ],
+      tools: [TOOL_DEF],
+      tool_choice: {
+        type: "function",
+        function: { name: "report_label_fields" },
       },
-    ],
+    }),
   });
 
-  const toolBlock = response.content.find(
-    (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use",
-  );
-  if (!toolBlock) {
-    throw new Error("Model did not return structured label data");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `OpenRouter request failed (${res.status}): ${text.slice(0, 400)}`,
+    );
   }
-  const raw = toolBlock.input as Record<string, unknown>;
 
-  const combinedProducer = [raw.producer_name, raw.producer_address]
-    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+  const data = (await res.json()) as OpenRouterResponse;
+  if (data.error) {
+    throw new Error(
+      `OpenRouter error: ${data.error.message ?? JSON.stringify(data.error)}`,
+    );
+  }
+  const message = data.choices?.[0]?.message;
+  const toolCall = message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) {
+    throw new Error(
+      "Model did not return structured tool output. Try a model with tool/function-call support.",
+    );
+  }
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(toolCall.function.arguments);
+  } catch {
+    throw new Error("Could not parse model tool arguments as JSON");
+  }
+
+  const producerName = emptyToNull(raw.producer_name);
+  const producerAddress = emptyToNull(raw.producer_address);
+  const producer = [producerName, producerAddress]
+    .filter((v): v is string => Boolean(v))
     .join(", ");
 
   return {
-    brandName: (raw.brand_name as string | null) ?? null,
-    classType: (raw.class_type as string | null) ?? null,
-    alcoholContent: (raw.alcohol_content as string | null) ?? null,
-    netContents: (raw.net_contents as string | null) ?? null,
-    producer: combinedProducer.length > 0 ? combinedProducer : null,
-    originCountry: (raw.country_of_origin as string | null) ?? null,
-    governmentWarning: (raw.government_warning as string | null) ?? null,
+    brandName: emptyToNull(raw.brand_name),
+    classType: emptyToNull(raw.class_type),
+    alcoholContent: emptyToNull(raw.alcohol_content),
+    netContents: emptyToNull(raw.net_contents),
+    producer: producer.length > 0 ? producer : null,
+    originCountry: emptyToNull(raw.country_of_origin),
+    governmentWarning: emptyToNull(raw.government_warning),
     warningStartsWithCapsHeader: Boolean(raw.warning_header_in_all_caps),
-    notes: (raw.notes as string | null) ?? null,
+    notes: emptyToNull(raw.notes),
   };
 }

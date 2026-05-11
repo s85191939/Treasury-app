@@ -50,9 +50,9 @@ export default function Home() {
       {mode === "single" ? <SingleVerifier /> : <BatchVerifier />}
 
       <footer className="mt-12 border-t border-slate-200 pt-6 text-xs text-slate-500">
-        Prototype only — no data is stored. Vision extraction uses Anthropic
-        Claude. Results require an agent to confirm before any compliance
-        action.
+        Prototype only — no data is stored. Vision extraction is routed
+        through OpenRouter. Results require an agent to confirm before any
+        compliance action.
       </footer>
     </div>
   );
