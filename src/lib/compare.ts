@@ -1,4 +1,5 @@
 import type {
+  BeverageClass,
   ExtractedLabel,
   FieldResult,
   FieldStatus,
@@ -36,7 +37,7 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-function similarity(a: string, b: string): number {
+export function similarity(a: string, b: string): number {
   const na = normalize(a);
   const nb = normalize(b);
   if (!na && !nb) return 1;
@@ -45,7 +46,7 @@ function similarity(a: string, b: string): number {
   return 1 - dist / Math.max(na.length, nb.length);
 }
 
-function parsePercent(s: string | null | undefined): number | null {
+export function parsePercent(s: string | null | undefined): number | null {
   if (!s) return null;
   const m = s.match(/(\d+(?:\.\d+)?)\s*%/);
   if (m) return parseFloat(m[1]);
@@ -64,15 +65,13 @@ const VOLUME_TO_ML: Record<string, number> = {
   litre: 1000,
   litres: 1000,
   cl: 10,
-  "fl.oz.": 29.5735,
-  "fl.oz": 29.5735,
-  "fl oz": 29.5735,
-  "fluid ounce": 29.5735,
-  "fluid ounces": 29.5735,
+  floz: 29.5735,
+  "fluidounce": 29.5735,
+  "fluidounces": 29.5735,
   oz: 29.5735,
 };
 
-function parseVolumeMl(s: string | null | undefined): number | null {
+export function parseVolumeMl(s: string | null | undefined): number | null {
   if (!s) return null;
   const cleaned = s.toLowerCase().replace(/[,]/g, "").trim();
   const m = cleaned.match(/(\d+(?:\.\d+)?)\s*(ml|cl|liters?|litres?|l|fl\.?\s*oz\.?|fluid ounces?|oz)/);
@@ -81,8 +80,9 @@ function parseVolumeMl(s: string | null | undefined): number | null {
     return just ? parseFloat(just[1]) : null;
   }
   const value = parseFloat(m[1]);
-  const unit = m[2].replace(/\s+/g, "").replace(/\./g, "");
-  const factor = VOLUME_TO_ML[unit] ?? VOLUME_TO_ML[m[2].trim()] ?? null;
+  const unitRaw = m[2];
+  const unit = unitRaw.replace(/\s+/g, "").replace(/\./g, "");
+  const factor = VOLUME_TO_ML[unit] ?? null;
   if (factor === null) return null;
   return value * factor;
 }
@@ -104,9 +104,36 @@ function compareText(
   return { status: "fail", note: `Mismatch (${Math.round(sim * 100)}% similar)` };
 }
 
-function compareAbv(expected: string, found: string | null): FieldResult {
+// ABV exemption rules per beverage type
+// - Distilled spirits: ABV always required
+// - Wine: ABV required if ≥ 14% ABV; otherwise the "Light Wine" / class designation
+//   may stand in. We treat missing ABV as PASS for wine when expected is < 14%.
+// - Beer / malt: ABV is optional at federal level (states vary). Missing is N/A.
+function abvIsRequired(
+  beverageClass: BeverageClass,
+  expectedAbv: number | null,
+): boolean {
+  switch (beverageClass) {
+    case "spirits":
+      return true;
+    case "wine":
+      return expectedAbv === null ? true : expectedAbv >= 14;
+    case "beer":
+      return false;
+    default:
+      return true;
+  }
+}
+
+function compareAbv(
+  expected: string,
+  found: string | null,
+  beverageClass: BeverageClass,
+): FieldResult {
   const exp = parsePercent(expected);
   const got = parsePercent(found);
+  const required = abvIsRequired(beverageClass, exp);
+
   if (exp === null) {
     return {
       field: "alcoholContent",
@@ -118,6 +145,19 @@ function compareAbv(expected: string, found: string | null): FieldResult {
     };
   }
   if (got === null) {
+    if (!required) {
+      return {
+        field: "alcoholContent",
+        label: "Alcohol Content",
+        expected,
+        found,
+        status: "n/a",
+        note:
+          beverageClass === "wine"
+            ? "Wine under 14% — ABV not required if class designation suffices"
+            : "ABV is not required on this beverage type",
+      };
+    }
     return {
       field: "alcoholContent",
       label: "Alcohol Content",
@@ -174,7 +214,7 @@ function compareNetContents(expected: string, found: string | null): FieldResult
   if (diff < 0.5) status = "pass";
   else if (diff / exp < 0.02) {
     status = "warning";
-    note = `Volume differs by ${diff.toFixed(1)} mL`;
+    note = `Volume differs by ${diff.toFixed(1)} mL (within tolerance)`;
   } else note = `Volume differs by ${diff.toFixed(1)} mL`;
   return {
     field: "netContents",
@@ -186,7 +226,11 @@ function compareNetContents(expected: string, found: string | null): FieldResult
   };
 }
 
-function compareWarning(found: string | null, modelClaimsCapsHeader: boolean): FieldResult {
+function compareWarning(
+  found: string | null,
+  modelClaimsCapsHeader: boolean,
+  modelClaimsBoldHeader: boolean,
+): FieldResult {
   if (!found) {
     return {
       field: "governmentWarning",
@@ -206,6 +250,16 @@ function compareWarning(found: string | null, modelClaimsCapsHeader: boolean): F
       found,
       status: "fail",
       note: "Header is not 'GOVERNMENT WARNING:' in all caps — TTB requires exact format",
+    };
+  }
+  if (!modelClaimsBoldHeader) {
+    return {
+      field: "governmentWarning",
+      label: "Government Warning",
+      expected: CANONICAL_WARNING,
+      found,
+      status: "fail",
+      note: "Header is not in bold weight — TTB requires bold 'GOVERNMENT WARNING:'",
     };
   }
   const normFound = found.replace(/\s+/g, " ").trim();
@@ -240,11 +294,57 @@ function compareWarning(found: string | null, modelClaimsCapsHeader: boolean): F
   };
 }
 
+function compareBeverageClass(
+  expected: BeverageClass,
+  found: BeverageClass,
+): FieldResult | null {
+  if (expected === "unknown") return null;
+  const labels: Record<BeverageClass, string> = {
+    spirits: "Distilled spirits",
+    wine: "Wine",
+    beer: "Beer / malt beverage",
+    unknown: "Unspecified",
+  };
+  if (found === expected) {
+    return {
+      field: "beverageClass",
+      label: "Beverage Type",
+      expected: labels[expected],
+      found: labels[found],
+      status: "pass",
+    };
+  }
+  if (found === "unknown") {
+    return {
+      field: "beverageClass",
+      label: "Beverage Type",
+      expected: labels[expected],
+      found: labels[found],
+      status: "warning",
+      note: "Model could not confidently classify the beverage type",
+    };
+  }
+  return {
+    field: "beverageClass",
+    label: "Beverage Type",
+    expected: labels[expected],
+    found: labels[found],
+    status: "fail",
+    note: `Label appears to be ${labels[found]}, not ${labels[expected]}`,
+  };
+}
+
 export function compareFields(
   application: LabelApplication,
   extracted: ExtractedLabel,
 ): FieldResult[] {
   const results: FieldResult[] = [];
+
+  const beverageCheck = compareBeverageClass(
+    application.beverageClass,
+    extracted.beverageClass,
+  );
+  if (beverageCheck) results.push(beverageCheck);
 
   results.push({
     field: "brandName",
@@ -262,7 +362,15 @@ export function compareFields(
     ...compareText(application.classType, extracted.classType, 0.8),
   });
 
-  results.push(compareAbv(application.alcoholContent, extracted.alcoholContent));
+  results.push(
+    compareAbv(
+      application.alcoholContent,
+      extracted.alcoholContent,
+      application.beverageClass === "unknown"
+        ? extracted.beverageClass
+        : application.beverageClass,
+    ),
+  );
 
   results.push(compareNetContents(application.netContents, extracted.netContents));
 
@@ -285,7 +393,11 @@ export function compareFields(
   }
 
   results.push(
-    compareWarning(extracted.governmentWarning, extracted.warningStartsWithCapsHeader),
+    compareWarning(
+      extracted.governmentWarning,
+      extracted.warningStartsWithCapsHeader,
+      extracted.warningHeaderIsBold,
+    ),
   );
 
   return results;

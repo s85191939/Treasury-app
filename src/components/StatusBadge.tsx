@@ -4,7 +4,8 @@ const STYLES: Record<FieldStatus | "review", string> = {
   pass: "bg-emerald-100 text-emerald-800 ring-emerald-200",
   fail: "bg-rose-100 text-rose-800 ring-rose-200",
   warning: "bg-amber-100 text-amber-800 ring-amber-200",
-  missing: "bg-slate-200 text-slate-700 ring-slate-300",
+  missing: "bg-rose-100 text-rose-800 ring-rose-200",
+  "n/a": "bg-slate-200 text-slate-700 ring-slate-300",
   review: "bg-amber-100 text-amber-800 ring-amber-200",
 };
 
@@ -13,7 +14,17 @@ const LABELS: Record<FieldStatus | "review", string> = {
   fail: "Fail",
   warning: "Review",
   missing: "Missing",
+  "n/a": "Not required",
   review: "Needs review",
+};
+
+const ICONS: Record<FieldStatus | "review", string> = {
+  pass: "✓",
+  fail: "✕",
+  warning: "!",
+  missing: "?",
+  "n/a": "—",
+  review: "!",
 };
 
 export function StatusBadge({
@@ -28,6 +39,7 @@ export function StatusBadge({
     <span
       className={`inline-flex items-center gap-1 rounded-full font-semibold ring-1 ring-inset ${pad} ${STYLES[status]}`}
     >
+      <span aria-hidden>{ICONS[status]}</span>
       {LABELS[status]}
     </span>
   );

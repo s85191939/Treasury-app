@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { LabelApplication, VerifyResponse } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { BeverageClass, LabelApplication, VerifyResponse } from "@/lib/types";
+import { BEVERAGE_LABELS } from "@/lib/types";
 import { VerificationResult } from "./VerificationResult";
 
 const SAMPLE: LabelApplication = {
@@ -10,6 +11,7 @@ const SAMPLE: LabelApplication = {
   alcoholContent: "45% Alc./Vol.",
   netContents: "750 mL",
   producer: "Old Tom Distillery, Bardstown, KY",
+  beverageClass: "spirits",
 };
 
 export function SingleVerifier() {
@@ -17,9 +19,17 @@ export function SingleVerifier() {
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<string>("");
   const [result, setResult] = useState<VerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   function handleFile(file: File | null) {
     setImage(file);
@@ -29,8 +39,18 @@ export function SingleVerifier() {
     setPreview(file ? URL.createObjectURL(file) : null);
   }
 
-  function update<K extends keyof LabelApplication>(key: K, value: string) {
+  function update<K extends keyof LabelApplication>(
+    key: K,
+    value: LabelApplication[K],
+  ) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
   }
 
   async function submit(e: React.FormEvent) {
@@ -41,7 +61,12 @@ export function SingleVerifier() {
     }
     setError(null);
     setLoading(true);
+    setLoadingStage("Reading the label…");
     setResult(null);
+    const stageTimer = window.setTimeout(
+      () => setLoadingStage("Comparing fields to application…"),
+      1500,
+    );
     try {
       const fd = new FormData();
       fd.append("image", image);
@@ -49,14 +74,16 @@ export function SingleVerifier() {
       const res = await fetch("/api/verify", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Verification failed");
+        setError(json.error ?? "Verification failed.");
       } else {
         setResult(json as VerifyResponse);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
+      window.clearTimeout(stageTimer);
       setLoading(false);
+      setLoadingStage("");
     }
   }
 
@@ -76,6 +103,27 @@ export function SingleVerifier() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm sm:col-span-2">
+            <span className="font-medium text-slate-700">
+              Beverage Type <span className="text-rose-500">*</span>
+            </span>
+            <select
+              value={form.beverageClass}
+              onChange={(e) =>
+                update("beverageClass", e.target.value as BeverageClass)
+              }
+              className="mt-1 block w-full rounded-lg border-0 bg-slate-50 px-3 py-2 text-slate-900 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            >
+              <option value="spirits">{BEVERAGE_LABELS.spirits}</option>
+              <option value="wine">{BEVERAGE_LABELS.wine}</option>
+              <option value="beer">{BEVERAGE_LABELS.beer}</option>
+              <option value="unknown">Not sure</option>
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Different rules apply per type — e.g. wine under 14% can omit ABV.
+            </span>
+          </label>
+
           <Field
             label="Brand Name"
             value={form.brandName}
@@ -122,12 +170,22 @@ export function SingleVerifier() {
             2. Label image
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            JPEG, PNG, or WebP. Up to 8 MB.
+            JPEG, PNG, WebP, or GIF. Up to 8 MB.
           </p>
 
           <label
             htmlFor="single-image"
-            className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-slate-500 hover:border-indigo-400 hover:bg-indigo-50"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={onDrop}
+            className={`mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center transition ${
+              isDragging
+                ? "border-indigo-500 bg-indigo-100 text-indigo-900"
+                : "border-slate-300 bg-slate-50 text-slate-500 hover:border-indigo-400 hover:bg-indigo-50"
+            }`}
           >
             {image ? (
               <span className="text-sm font-medium text-slate-700">
@@ -159,13 +217,16 @@ export function SingleVerifier() {
             <img
               src={preview}
               alt="Label preview"
-              className="mt-4 max-h-64 w-full rounded-lg object-contain ring-1 ring-slate-200"
+              className="mt-4 max-h-72 w-full rounded-lg object-contain ring-1 ring-slate-200"
             />
           ) : null}
         </div>
 
         {error ? (
-          <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200">
+          <div
+            role="alert"
+            className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200"
+          >
             {error}
           </div>
         ) : null}
@@ -181,18 +242,21 @@ export function SingleVerifier() {
 
       <div>
         {loading ? (
-          <div className="flex h-full min-h-[300px] items-center justify-center rounded-2xl bg-white p-8 text-slate-500 shadow-sm ring-1 ring-slate-200">
+          <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl bg-white p-8 text-slate-500 shadow-sm ring-1 ring-slate-200">
             <div className="text-center">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"></div>
-              <p className="mt-3 text-sm">
-                Reading label and comparing to application…
+              <p className="mt-3 text-sm font-medium text-slate-700">
+                {loadingStage || "Working…"}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Typical labels return in 2-3 seconds.
               </p>
             </div>
           </div>
         ) : result ? (
           <VerificationResult result={result} />
         ) : (
-          <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/50 p-8 text-center text-slate-500">
+          <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/50 p-8 text-center text-slate-500">
             <p className="text-sm">
               Results will appear here once you submit an application and label.
             </p>

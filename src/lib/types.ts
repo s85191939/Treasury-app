@@ -7,7 +7,7 @@ export interface LabelApplication {
   netContents: string;
   producer: string;
   originCountry?: string;
-  beverageClass?: BeverageClass;
+  beverageClass: BeverageClass;
 }
 
 export interface ExtractedLabel {
@@ -19,10 +19,12 @@ export interface ExtractedLabel {
   originCountry: string | null;
   governmentWarning: string | null;
   warningStartsWithCapsHeader: boolean;
+  warningHeaderIsBold: boolean;
+  beverageClass: BeverageClass;
   notes: string | null;
 }
 
-export type FieldStatus = "pass" | "fail" | "warning" | "missing";
+export type FieldStatus = "pass" | "fail" | "warning" | "missing" | "n/a";
 
 export interface FieldResult {
   field: string;
@@ -39,3 +41,10 @@ export interface VerifyResponse {
   overall: "pass" | "fail" | "review";
   latencyMs: number;
 }
+
+export const BEVERAGE_LABELS: Record<BeverageClass, string> = {
+  spirits: "Distilled spirits",
+  wine: "Wine",
+  beer: "Beer / malt beverage",
+  unknown: "Unspecified",
+};

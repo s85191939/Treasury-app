@@ -1,4 +1,4 @@
-import type { ExtractedLabel } from "./types";
+import type { BeverageClass, ExtractedLabel } from "./types";
 
 const MODEL = process.env.OPENROUTER_MODEL ?? "google/gemini-2.5-flash";
 const BASE_URL =
@@ -6,7 +6,7 @@ const BASE_URL =
 
 const SYSTEM_PROMPT = `You are an expert assistant for the U.S. Alcohol and Tobacco Tax and Trade Bureau (TTB) label compliance program. You read photographs or scans of alcohol beverage labels and extract the regulated fields exactly as they appear.
 
-TTB labels must include: brand name, class/type designation, alcohol content, net contents, name and address of bottler/producer, country of origin for imports, and the mandatory Government Health Warning Statement (27 CFR 16.21).
+TTB labels must include: brand name, class/type designation, alcohol content (with some exceptions for wines under 14% ABV and certain malt beverages), net contents, name and address of bottler/producer, country of origin for imports, and the mandatory Government Health Warning Statement (27 CFR 16.21).
 
 The canonical Government Warning text is:
 "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
@@ -17,9 +17,18 @@ CRITICAL — case fidelity for the Government Warning:
 - Copy the warning text character-for-character as printed. Do NOT auto-correct case.
 - If the label says "Government Warning:" in mixed case, you MUST return "Government Warning:" — never normalise to all caps.
 - The warning_header_in_all_caps boolean is true ONLY if the very first characters on the label are the literal uppercase string "GOVERNMENT WARNING:". A title-case "Government Warning:" or lowercase variant means warning_header_in_all_caps=false.
-- A downstream compliance check rejects labels with the wrong case. Returning all caps when the label is title case will cause a regulatory miss.
+- The warning_header_is_bold boolean is true ONLY if the "GOVERNMENT WARNING:" header is rendered in bold weight (visibly heavier strokes than the surrounding warning body text). TTB requires bold. If the header is the same weight as the body, return false.
+- A downstream compliance check rejects labels with the wrong case or weight. Returning all caps when the label is title case, or bold when the label is regular weight, will cause a regulatory miss.
 
-For other fields, extract the visible text. If a field is not visible on the label, return an empty string for that field. Do not guess.`;
+Beverage classification (beverage_class):
+- "spirits" for distilled spirits (whiskey, vodka, gin, rum, tequila, brandy, liqueurs, etc.)
+- "wine" for grape wines and other fruit-based wines
+- "beer" for beer, malt beverages, ale, lager, stout, etc.
+- "unknown" only if you genuinely cannot determine the category.
+
+For other fields, extract the visible text. If a field is not visible on the label, return an empty string for that field. Do not guess.
+
+Use the notes field to alert an agent to image-quality issues (severe angle, glare, blur, occlusion of regulated areas). Leave notes empty if the image is clean.`;
 
 const TOOL_DEF = {
   type: "function" as const,
@@ -74,6 +83,17 @@ const TOOL_DEF = {
           description:
             "True iff the warning text begins with the exact characters 'GOVERNMENT WARNING:' in all uppercase, as TTB requires.",
         },
+        warning_header_is_bold: {
+          type: "boolean",
+          description:
+            "True iff the 'GOVERNMENT WARNING:' header is rendered in bold weight relative to the surrounding warning body. TTB requires bold.",
+        },
+        beverage_class: {
+          type: "string",
+          enum: ["spirits", "wine", "beer", "unknown"],
+          description:
+            "Best-guess beverage classification from the label artwork.",
+        },
         notes: {
           type: "string",
           description:
@@ -90,6 +110,8 @@ const TOOL_DEF = {
         "country_of_origin",
         "government_warning",
         "warning_header_in_all_caps",
+        "warning_header_is_bold",
+        "beverage_class",
         "notes",
       ],
       additionalProperties: false,
@@ -101,6 +123,11 @@ function emptyToNull(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const trimmed = v.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+function asBeverageClass(v: unknown): BeverageClass {
+  if (v === "spirits" || v === "wine" || v === "beer") return v;
+  return "unknown";
 }
 
 interface OpenRouterResponse {
@@ -208,6 +235,8 @@ export async function extractLabel(
     originCountry: emptyToNull(raw.country_of_origin),
     governmentWarning: emptyToNull(raw.government_warning),
     warningStartsWithCapsHeader: Boolean(raw.warning_header_in_all_caps),
+    warningHeaderIsBold: Boolean(raw.warning_header_is_bold),
+    beverageClass: asBeverageClass(raw.beverage_class),
     notes: emptyToNull(raw.notes),
   };
 }

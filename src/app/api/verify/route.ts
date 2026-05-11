@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractLabel } from "@/lib/extract";
 import { compareFields, overallStatus } from "@/lib/compare";
-import type { LabelApplication, VerifyResponse } from "@/lib/types";
+import type { BeverageClass, LabelApplication, VerifyResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -11,6 +11,13 @@ const ACCEPTED_TYPES = new Set([
   "image/png",
   "image/webp",
   "image/gif",
+]);
+
+const VALID_CLASSES: ReadonlySet<BeverageClass> = new Set([
+  "spirits",
+  "wine",
+  "beer",
+  "unknown",
 ]);
 
 function parseApplication(raw: unknown): LabelApplication | null {
@@ -27,6 +34,11 @@ function parseApplication(raw: unknown): LabelApplication | null {
   for (const key of required) {
     if (typeof p[key] !== "string" || !(p[key] as string).trim()) return null;
   }
+  const beverageClass =
+    typeof p.beverageClass === "string" &&
+    VALID_CLASSES.has(p.beverageClass as BeverageClass)
+      ? (p.beverageClass as BeverageClass)
+      : "unknown";
   return {
     brandName: (p.brandName as string).trim(),
     classType: (p.classType as string).trim(),
@@ -37,6 +49,7 @@ function parseApplication(raw: unknown): LabelApplication | null {
       typeof p.originCountry === "string" && p.originCountry.trim()
         ? (p.originCountry as string).trim()
         : undefined,
+    beverageClass,
   };
 }
 
@@ -46,7 +59,10 @@ export async function POST(req: Request) {
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return NextResponse.json(
+      { error: "We couldn't read the upload. Try again." },
+      { status: 400 },
+    );
   }
 
   const image = form.get("image");
@@ -54,25 +70,30 @@ export async function POST(req: Request) {
 
   if (!(image instanceof File)) {
     return NextResponse.json(
-      { error: "Missing image file" },
+      { error: "Please attach a label image." },
       { status: 400 },
     );
   }
   if (!application) {
     return NextResponse.json(
-      { error: "Missing or invalid application data" },
+      {
+        error:
+          "Application data is missing or incomplete. Brand, class/type, alcohol, net contents, and producer are required.",
+      },
       { status: 400 },
     );
   }
   if (!ACCEPTED_TYPES.has(image.type)) {
     return NextResponse.json(
-      { error: `Unsupported image type: ${image.type || "unknown"}` },
+      {
+        error: `That file type isn't supported (${image.type || "unknown"}). Please upload a JPEG, PNG, WebP, or GIF.`,
+      },
       { status: 415 },
     );
   }
   if (image.size > 8 * 1024 * 1024) {
     return NextResponse.json(
-      { error: "Image exceeds 8 MB limit" },
+      { error: "Image is too large. Please keep it under 8 MB." },
       { status: 413 },
     );
   }
@@ -96,6 +117,18 @@ export async function POST(req: Request) {
     return NextResponse.json(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (message.includes("OPENROUTER_API_KEY")) {
+      return NextResponse.json(
+        {
+          error:
+            "Server is not configured: OPENROUTER_API_KEY is missing. Ask the administrator to set it.",
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json(
+      { error: `Couldn't read this label: ${message}` },
+      { status: 502 },
+    );
   }
 }
