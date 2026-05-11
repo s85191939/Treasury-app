@@ -40,7 +40,6 @@ A failed label looks like this — each rule the verifier failed is called out w
 10. [Design decisions, mapped to the interviews](#design-decisions-mapped-to-the-interviews)
 11. [Testing](#testing)
 12. [Limitations and known issues](#limitations-and-known-issues)
-13. [Deployment](#deployment)
 
 ---
 
@@ -534,26 +533,6 @@ Together they cover the compliance logic deterministically *and* prove the deplo
 - **CSV pairing is by filename, case-sensitive.** Simple and predictable, but not forgiving — `Foo.jpg` and `foo.jpg` won't match. Production would pull straight from COLA application records.
 - **No authentication.** Per Marcus's "standalone proof-of-concept" framing. Production would sit behind agent SSO.
 - **No persisted audit log.** Every verification is ephemeral. A real deployment would append-only-log every verdict for downstream COLA reconciliation.
-
----
-
-## Deployment
-
-The live deployment is on Vercel at <https://treasury-app-eosin.vercel.app>.
-
-To deploy your own copy:
-
-1. Fork or import this repository on Vercel ([vercel.com/new](https://vercel.com/new)).
-2. Add `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`) under **Project Settings → Environment Variables**.
-3. Deploy. No build configuration required — Vercel auto-detects Next.js.
-
-Or from this directory with the Vercel CLI:
-
-```bash
-vercel link
-echo "$OPENROUTER_API_KEY" | vercel env add OPENROUTER_API_KEY production
-vercel deploy --prod
-```
 
 ---
 
