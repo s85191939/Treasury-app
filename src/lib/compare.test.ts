@@ -361,3 +361,182 @@ describe("overallStatus", () => {
     expect(overallStatus(results)).toBe("pass");
   });
 });
+
+describe("similarity — boundary cases", () => {
+  it("returns 1 for two empty strings", () => {
+    expect(similarity("", "")).toBe(1);
+  });
+  it("returns 0 when one side is empty and the other is not", () => {
+    expect(similarity("Brand", "")).toBe(0);
+    expect(similarity("", "Brand")).toBe(0);
+  });
+  it("collapses internal whitespace", () => {
+    expect(similarity("Old   Tom", "Old Tom")).toBeCloseTo(1);
+  });
+  it("normalises curly quotes", () => {
+    expect(similarity("Stone’s Throw", "Stone's Throw")).toBeCloseTo(1);
+  });
+});
+
+describe("parsePercent — edge cases", () => {
+  it("handles whitespace and decimal variants", () => {
+    expect(parsePercent("   45.5  % ")).toBe(45.5);
+    expect(parsePercent("45.50%")).toBe(45.5);
+  });
+  it("prefers percent over proof when both present", () => {
+    expect(parsePercent("45% Alc./Vol. (90 Proof)")).toBe(45);
+  });
+  it("handles fractional proof", () => {
+    expect(parsePercent("89.4 Proof")).toBeCloseTo(44.7);
+  });
+});
+
+describe("parseVolumeMl — unit coverage", () => {
+  it("is case-insensitive", () => {
+    expect(parseVolumeMl("750 ML")).toBe(750);
+    expect(parseVolumeMl("750 Ml")).toBe(750);
+    expect(parseVolumeMl("12 FL OZ")).toBeCloseTo(354.88, 1);
+  });
+  it("handles comma thousands separators", () => {
+    expect(parseVolumeMl("1,750 mL")).toBe(1750);
+  });
+  it("rejects ambiguous numbers without unit when other text present", () => {
+    expect(parseVolumeMl("Bottle 750")).toBeNull();
+  });
+});
+
+describe("compareFields — class/type fuzzy edge cases", () => {
+  it("REVIEW when extracted class adds adjacent qualifier", () => {
+    const r = statusOf(
+      "classType",
+      APP,
+      clean({
+        classType: "Premium Kentucky Straight Bourbon Whiskey",
+      }),
+    );
+    expect(["pass", "warning"]).toContain(r.status);
+  });
+
+  it("FAIL when class is totally different beverage", () => {
+    const r = statusOf("classType", APP, clean({ classType: "India Pale Ale" }));
+    expect(r.status).toBe("fail");
+  });
+});
+
+describe("compareFields — country of origin", () => {
+  it("PASS on exact match", () => {
+    const r = statusOf(
+      "originCountry",
+      { ...APP, originCountry: "France" },
+      clean({ originCountry: "France" }),
+    );
+    expect(r.status).toBe("pass");
+  });
+  it("not included when application omits country", () => {
+    const results = compareFields(APP, clean({ originCountry: "France" }));
+    expect(results.find((r) => r.field === "originCountry")).toBeUndefined();
+  });
+  it("MISSING when application has country but label does not", () => {
+    const r = statusOf(
+      "originCountry",
+      { ...APP, originCountry: "France" },
+      clean({ originCountry: null }),
+    );
+    expect(r.status).toBe("missing");
+  });
+});
+
+describe("compareFields — Government Warning near-miss handling", () => {
+  it("PASS on whitespace-only OCR variance (whitespace gets collapsed)", () => {
+    const r = statusOf(
+      "governmentWarning",
+      APP,
+      clean({
+        governmentWarning:
+          "GOVERNMENT WARNING: (1) According  to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      }),
+    );
+    // Whitespace gets normalised in the comparator, so this is an exact pass.
+    expect(r.status).toBe("pass");
+  });
+
+  it("REVIEW when text differs by a single character (>=98% similar)", () => {
+    const r = statusOf(
+      "governmentWarning",
+      APP,
+      clean({
+        governmentWarning:
+          "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defect. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      }),
+    );
+    expect(r.status).toBe("warning");
+  });
+
+  it("FAIL when one of the two clauses is missing", () => {
+    const r = statusOf(
+      "governmentWarning",
+      APP,
+      clean({
+        governmentWarning:
+          "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects.",
+      }),
+    );
+    expect(r.status).toBe("fail");
+  });
+});
+
+describe("compareFields — ABV exemption corner cases", () => {
+  it("wine at exactly 14% requires ABV", () => {
+    const r = statusOf(
+      "alcoholContent",
+      {
+        ...APP,
+        beverageClass: "wine",
+        alcoholContent: "14% Alc./Vol.",
+        classType: "Red Wine",
+      },
+      clean({
+        alcoholContent: null,
+        beverageClass: "wine",
+        classType: "Red Wine",
+      }),
+    );
+    expect(r.status).toBe("missing");
+  });
+
+  it("wine at 13.9% can omit ABV", () => {
+    const r = statusOf(
+      "alcoholContent",
+      {
+        ...APP,
+        beverageClass: "wine",
+        alcoholContent: "13.9% Alc./Vol.",
+        classType: "Red Wine",
+      },
+      clean({
+        alcoholContent: null,
+        beverageClass: "wine",
+        classType: "Red Wine",
+      }),
+    );
+    expect(r.status).toBe("n/a");
+  });
+
+  it("falls back to extracted beverage class when application says 'unknown'", () => {
+    const r = statusOf(
+      "alcoholContent",
+      {
+        ...APP,
+        beverageClass: "unknown",
+        alcoholContent: "5% Alc./Vol.",
+        classType: "IPA",
+      },
+      clean({
+        alcoholContent: null,
+        beverageClass: "beer",
+        classType: "IPA",
+      }),
+    );
+    expect(r.status).toBe("n/a");
+  });
+});
