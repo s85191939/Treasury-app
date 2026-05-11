@@ -40,8 +40,7 @@ A failed label looks like this — each rule the verifier failed is called out w
 10. [Design decisions, mapped to the interviews](#design-decisions-mapped-to-the-interviews)
 11. [Testing](#testing)
 12. [Limitations and known issues](#limitations-and-known-issues)
-13. [Future work](#future-work)
-14. [Deployment](#deployment)
+13. [Deployment](#deployment)
 
 ---
 
@@ -535,21 +534,6 @@ Together they cover the compliance logic deterministically *and* prove the deplo
 - **CSV pairing is by filename, case-sensitive.** Simple and predictable, but not forgiving — `Foo.jpg` and `foo.jpg` won't match. Production would pull straight from COLA application records.
 - **No authentication.** Per Marcus's "standalone proof-of-concept" framing. Production would sit behind agent SSO.
 - **No persisted audit log.** Every verification is ephemeral. A real deployment would append-only-log every verdict for downstream COLA reconciliation.
-
----
-
-## Future work
-
-Order roughly by *impact-per-hour-of-engineering*:
-
-1. **CSV/Excel-format-aware sample download** — generate the sample CSV with header docstrings explaining each column.
-2. **A "needs re-photograph" workflow** — when the model emits a `notes` field, auto-fill the agent's standard request-for-better-image template.
-3. **Versioned canonical warning + class-type taxonomy**, loaded from a small server-side config so legal can update without a deploy.
-4. **Retry with a stronger model on `review` outcomes** — keep Flash for the cheap fast pass, escalate to Sonnet/GPT-4o only for borderline cases.
-5. **Side-by-side image viewer** with zoom + boxes drawn around the extracted fields so the agent can visually confirm what the model "saw".
-6. **Throughput tuning for 200-300 label peak-season batches** — server-side queue, per-customer concurrency, OCR cost budget per upload.
-7. **Auditability** — append-only log of every verification (image hash, application data, extracted fields, verdict, model name, timestamp) for downstream COLA reconciliation.
-8. **Class/type taxonomy enforcement** — e.g. "Kentucky Straight Bourbon" must be produced in Kentucky.
 
 ---
 
