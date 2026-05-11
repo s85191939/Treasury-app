@@ -1,6 +1,6 @@
 import type { ExtractedLabel } from "./types";
 
-const MODEL = process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-4.5";
+const MODEL = process.env.OPENROUTER_MODEL ?? "google/gemini-2.5-flash";
 const BASE_URL =
   process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
 
