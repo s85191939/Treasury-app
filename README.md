@@ -533,9 +533,3 @@ Together they cover the compliance logic deterministically *and* prove the deplo
 - **CSV pairing is by filename, case-sensitive.** Simple and predictable, but not forgiving — `Foo.jpg` and `foo.jpg` won't match. Production would pull straight from COLA application records.
 - **No authentication.** Per Marcus's "standalone proof-of-concept" framing. Production would sit behind agent SSO.
 - **No persisted audit log.** Every verification is ephemeral. A real deployment would append-only-log every verdict for downstream COLA reconciliation.
-
----
-
-## Credits
-
-- Photo-realistic community fixtures under [`samples/community/`](samples/community/) are from [**fsyeddev/ttb-label**](https://github.com/fsyeddev/ttb-label) by **Faheem Syed** — re-shared here in the same take-home evaluation context. Faheem spent a day crafting these through ChatGPT; they made the difference between testing on synthetic-only labels and on something that looks like a real bottle review.
