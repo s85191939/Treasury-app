@@ -186,7 +186,7 @@ function compareNetContents(expected: string, found: string | null): FieldResult
   };
 }
 
-function compareWarning(found: string | null, hasCapsHeader: boolean): FieldResult {
+function compareWarning(found: string | null, modelClaimsCapsHeader: boolean): FieldResult {
   if (!found) {
     return {
       field: "governmentWarning",
@@ -197,14 +197,15 @@ function compareWarning(found: string | null, hasCapsHeader: boolean): FieldResu
       note: "Required government warning statement is missing",
     };
   }
-  if (!hasCapsHeader) {
+  const startsWithCaps = found.trimStart().startsWith("GOVERNMENT WARNING:");
+  if (!startsWithCaps || !modelClaimsCapsHeader) {
     return {
       field: "governmentWarning",
       label: "Government Warning",
       expected: CANONICAL_WARNING,
       found,
       status: "fail",
-      note: "Header is not in all caps as 'GOVERNMENT WARNING:' — TTB requires exact format",
+      note: "Header is not 'GOVERNMENT WARNING:' in all caps — TTB requires exact format",
     };
   }
   const normFound = found.replace(/\s+/g, " ").trim();

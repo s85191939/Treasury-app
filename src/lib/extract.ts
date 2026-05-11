@@ -11,7 +11,15 @@ TTB labels must include: brand name, class/type designation, alcohol content, ne
 The canonical Government Warning text is:
 "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
 
-You always answer by calling the report_label_fields tool. Capture text verbatim — preserve original capitalization, punctuation, and spacing for the government warning so a downstream comparator can do a strict check. For other fields, extract the visible text. If a field is not visible on the label, return an empty string for that field. Do not guess.`;
+You always answer by calling the report_label_fields tool. Capture text verbatim — preserve original capitalization, punctuation, and spacing.
+
+CRITICAL — case fidelity for the Government Warning:
+- Copy the warning text character-for-character as printed. Do NOT auto-correct case.
+- If the label says "Government Warning:" in mixed case, you MUST return "Government Warning:" — never normalise to all caps.
+- The warning_header_in_all_caps boolean is true ONLY if the very first characters on the label are the literal uppercase string "GOVERNMENT WARNING:". A title-case "Government Warning:" or lowercase variant means warning_header_in_all_caps=false.
+- A downstream compliance check rejects labels with the wrong case. Returning all caps when the label is title case will cause a regulatory miss.
+
+For other fields, extract the visible text. If a field is not visible on the label, return an empty string for that field. Do not guess.`;
 
 const TOOL_DEF = {
   type: "function" as const,
