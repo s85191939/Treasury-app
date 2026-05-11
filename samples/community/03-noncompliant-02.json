@@ -1,0 +1,12 @@
+{
+  "brand_name": "River Run",
+  "class_type": "Straight Bourbon Whiskey",
+  "abv": "40% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "River Run Distilling",
+  "bottler_address": "Frankfort, KY",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "Label non-compliant: missing age statement on young whisky",
+  "expected_behavior": "FAIL compliance (Missing age statement for whisky under 4 years)"
+}

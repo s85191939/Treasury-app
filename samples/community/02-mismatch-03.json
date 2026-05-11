@@ -1,0 +1,12 @@
+{
+  "brand_name": "Island Bounty",
+  "class_type": "Spiced Rum",
+  "abv": "35% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "Island Bounty Co.",
+  "bottler_address": "Key West, FL",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "JSON wrong ABV, label correct",
+  "expected_behavior": "FAIL on cross-validation (ABV mismatch)"
+}

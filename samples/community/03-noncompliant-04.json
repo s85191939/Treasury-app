@@ -1,0 +1,12 @@
+{
+  "brand_name": "Oak & Iron",
+  "class_type": "Straight Bourbon Whiskey",
+  "abv": "45% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "Oak & Iron Distillers",
+  "bottler_address": "Brooklyn, NY",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "Label non-compliant: missing state of distillation",
+  "expected_behavior": "FAIL compliance (Missing state of distillation for straight whiskey)"
+}

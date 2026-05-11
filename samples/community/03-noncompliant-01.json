@@ -1,0 +1,12 @@
+{
+  "brand_name": "Crestview",
+  "class_type": "Vodka",
+  "abv": "40% Alc./Vol.",
+  "net_contents": "800 mL",
+  "bottler_name": "Crestview Spirits",
+  "bottler_address": "Denver, CO",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "Label non-compliant: non-approved bottle size (800 mL)",
+  "expected_behavior": "FAIL compliance (Net contents 800 mL not approved)"
+}

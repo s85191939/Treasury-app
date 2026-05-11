@@ -185,6 +185,51 @@ function compareAbv(
   };
 }
 
+// TTB Standards of Fill (27 CFR 5.203 for spirits, 27 CFR 4.72 for wine).
+// Values in millilitres. Beer/malt is not regulated for fill at the federal
+// level (state laws vary).
+const STANDARD_FILLS_ML: Record<BeverageClass, number[] | null> = {
+  spirits: [
+    50, 100, 187, 200, 355, 375, 500, 700, 720, 750, 900, 1000, 1750,
+  ],
+  wine: [50, 100, 187, 200, 250, 355, 375, 500, 750, 1000, 1500, 3000, 4000],
+  beer: null,
+  unknown: null,
+};
+
+function isStandardFill(ml: number, beverageClass: BeverageClass): boolean {
+  const list = STANDARD_FILLS_ML[beverageClass];
+  if (!list) return true; // not regulated, so don't flag
+  return list.some((v) => Math.abs(v - ml) < 1);
+}
+
+function checkStandardsOfFill(
+  application: LabelApplication,
+  beverageClass: BeverageClass,
+): FieldResult | null {
+  const allowedList = STANDARD_FILLS_ML[beverageClass];
+  if (!allowedList) return null; // not regulated; skip the row entirely
+  const ml = parseVolumeMl(application.netContents);
+  if (ml === null) return null; // can't parse, the net-contents check already noted that
+  if (isStandardFill(ml, beverageClass)) {
+    return {
+      field: "standardsOfFill",
+      label: "Standards of Fill",
+      expected: `${allowedList.map((v) => v).join(", ")} mL`,
+      found: application.netContents,
+      status: "pass",
+    };
+  }
+  return {
+    field: "standardsOfFill",
+    label: "Standards of Fill",
+    expected: `Approved sizes for ${beverageClass}`,
+    found: application.netContents,
+    status: "fail",
+    note: `${application.netContents} is not a TTB-approved bottle size for ${beverageClass} (27 CFR 5.203 / 4.72)`,
+  };
+}
+
 function compareNetContents(expected: string, found: string | null): FieldResult {
   const exp = parseVolumeMl(expected);
   const got = parseVolumeMl(found);
@@ -253,13 +298,17 @@ function compareWarning(
     };
   }
   if (!modelClaimsBoldHeader) {
+    // Bold detection on real photographs is the noisiest model signal: small,
+    // compressed warning text often reads as the same weight as the body even
+    // when it is rendered bold. Surface as a *Review* so an agent eyeballs it,
+    // rather than a hard fail that would generate false rejections.
     return {
       field: "governmentWarning",
       label: "Government Warning",
       expected: CANONICAL_WARNING,
       found,
-      status: "fail",
-      note: "Header is not in bold weight — TTB requires bold 'GOVERNMENT WARNING:'",
+      status: "warning",
+      note: "Header may not be in bold weight — TTB requires bold 'GOVERNMENT WARNING:'. Please confirm visually before rejecting.",
     };
   }
   const normFound = found.replace(/\s+/g, " ").trim();
@@ -373,6 +422,13 @@ export function compareFields(
   );
 
   results.push(compareNetContents(application.netContents, extracted.netContents));
+
+  const effectiveClass: BeverageClass =
+    application.beverageClass === "unknown"
+      ? extracted.beverageClass
+      : application.beverageClass;
+  const standardsRow = checkStandardsOfFill(application, effectiveClass);
+  if (standardsRow) results.push(standardsRow);
 
   results.push({
     field: "producer",

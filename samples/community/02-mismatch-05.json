@@ -1,0 +1,12 @@
+{
+  "brand_name": "Prairie Wind",
+  "class_type": "Straight Bourbon Whiskey",
+  "abv": "45% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "Wrong Distilling Co.",
+  "bottler_address": "Omaha, NE",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "JSON wrong bottler name, label correct",
+  "expected_behavior": "FAIL on cross-validation (Bottler mismatch)"
+}

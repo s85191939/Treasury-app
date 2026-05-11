@@ -1,0 +1,12 @@
+{
+  "brand_name": "Pine Valley",
+  "class_type": "Gin",
+  "abv": "43% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "Pine Valley Co.",
+  "bottler_address": "Bend, OR",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "Label non-compliant: bad production phrasing",
+  "expected_behavior": "FAIL compliance ('Crafted by' is non-standard phrasing)"
+}

@@ -1,0 +1,12 @@
+{
+  "brand_name": "Fireglow",
+  "class_type": "Cinnamon Liqueur",
+  "abv": "33% Alc./Vol.",
+  "net_contents": "750 mL",
+  "bottler_name": "Fireglow Spirits",
+  "bottler_address": "Austin, TX",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "Label non-compliant: missing composition statement on liqueur",
+  "expected_behavior": "FAIL compliance (Missing statement of composition)"
+}

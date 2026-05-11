@@ -138,13 +138,13 @@ describe("compareFields — Government Warning strictness (Jenny's rule)", () =>
     expect(r.note).toMatch(/all caps/i);
   });
 
-  it("FAILs when header is regular weight (not bold)", () => {
+  it("flags as REVIEW (not fail) when header may not be bold — model bold-detection is unreliable on real photos", () => {
     const r = statusOf(
       "governmentWarning",
       APP,
       clean({ warningHeaderIsBold: false }),
     );
-    expect(r.status).toBe("fail");
+    expect(r.status).toBe("warning");
     expect(r.note).toMatch(/bold/i);
   });
 
@@ -320,6 +320,95 @@ describe("compareFields — beverage class mismatch", () => {
       clean(),
     );
     expect(results.find((r) => r.field === "beverageClass")).toBeUndefined();
+  });
+});
+
+describe("compareFields — TTB Standards of Fill", () => {
+  it("PASS on a standard 750 mL spirits fill", () => {
+    const r = compareFields(APP, clean()).find(
+      (x) => x.field === "standardsOfFill",
+    );
+    expect(r?.status).toBe("pass");
+  });
+
+  it("FAIL on a non-standard 800 mL spirits fill", () => {
+    const results = compareFields(
+      { ...APP, netContents: "800 mL" },
+      clean({ netContents: "800 mL" }),
+    );
+    const r = results.find((x) => x.field === "standardsOfFill");
+    expect(r?.status).toBe("fail");
+    expect(r?.note).toMatch(/not a TTB-approved bottle size/i);
+  });
+
+  it("FAIL on 800 mL wine (not approved for wine either)", () => {
+    const results = compareFields(
+      {
+        ...APP,
+        beverageClass: "wine",
+        netContents: "800 mL",
+        alcoholContent: "12.5% Alc./Vol.",
+        classType: "Red Wine",
+      },
+      clean({
+        netContents: "800 mL",
+        beverageClass: "wine",
+        alcoholContent: "12.5% Alc./Vol.",
+        classType: "Red Wine",
+      }),
+    );
+    const r = results.find((x) => x.field === "standardsOfFill");
+    expect(r?.status).toBe("fail");
+  });
+
+  it("PASS on a wine-approved 250 mL (not on spirits list)", () => {
+    const results = compareFields(
+      {
+        ...APP,
+        beverageClass: "wine",
+        netContents: "250 mL",
+        alcoholContent: "12% Alc./Vol.",
+        classType: "Red Wine",
+      },
+      clean({
+        netContents: "250 mL",
+        beverageClass: "wine",
+        alcoholContent: "12% Alc./Vol.",
+        classType: "Red Wine",
+      }),
+    );
+    const r = results.find((x) => x.field === "standardsOfFill");
+    expect(r?.status).toBe("pass");
+  });
+
+  it("FAIL on 250 mL spirits (not on spirits list)", () => {
+    const results = compareFields(
+      { ...APP, netContents: "250 mL" },
+      clean({ netContents: "250 mL" }),
+    );
+    const r = results.find((x) => x.field === "standardsOfFill");
+    expect(r?.status).toBe("fail");
+  });
+
+  it("not included for beer (federal level does not regulate fill)", () => {
+    const results = compareFields(
+      {
+        ...APP,
+        beverageClass: "beer",
+        netContents: "355 mL",
+        classType: "IPA",
+        alcoholContent: "5% Alc./Vol.",
+      },
+      clean({
+        netContents: "355 mL",
+        beverageClass: "beer",
+        classType: "IPA",
+        alcoholContent: "5% Alc./Vol.",
+      }),
+    );
+    expect(
+      results.find((x) => x.field === "standardsOfFill"),
+    ).toBeUndefined();
   });
 });
 

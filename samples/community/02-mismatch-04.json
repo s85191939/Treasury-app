@@ -1,0 +1,12 @@
+{
+  "brand_name": "Glacier Point",
+  "class_type": "Vodka",
+  "abv": "40% Alc./Vol.",
+  "net_contents": "1000 mL",
+  "bottler_name": "Glacier Distillers",
+  "bottler_address": "Anchorage, AK",
+  "country_of_origin": "",
+  "is_import": false,
+  "description": "JSON wrong net contents, label correct",
+  "expected_behavior": "FAIL on cross-validation (Net contents mismatch)"
+}
