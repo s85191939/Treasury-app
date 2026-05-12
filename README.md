@@ -17,13 +17,6 @@ A failed label looks like this — each rule the verifier failed is called out w
 
 ![Fail result on a label with a title-case 'Government Warning:' header](docs/screenshots/result-fail-case.png)
 
-### Three-minute summary
-
-1. **The work today is mostly comparison.** Sarah Chen's team checks ~150 000 COLA applications a year. Most of the time is spent making sure the brand name, ABV, net contents, and Government Warning on the label match the form. The interviews described it as *"essentially data entry verification."*
-2. **The prototype does that comparison automatically.** An agent enters the COLA data, uploads the label photograph, and gets a per-field verdict in ~2-3 seconds. The Government Warning is checked strictly (canonical wording + all-caps header + bold weight). Brand, producer, and class type use fuzzy matching so a label with `STONE'S THROW` still matches an application of `Stone's Throw` — exactly the *judgment* Dave said the old vendor's pattern-matcher couldn't do.
-3. **It's a thin client with one outbound call.** No COLA integration, no database, no persisted PII — Marcus's pre-conditions. Vision/OCR is routed through [OpenRouter](https://openrouter.ai/), so the underlying model is swappable without code changes.
-4. **The regulatory decision is deterministic code, not the model.** The model only extracts text from the image. A pure-TypeScript comparator in `src/lib/compare.ts` applies the rules, and **80 unit tests** + **5 end-to-end browser tests** (85 total) pin every rule — including TTB Standards of Fill — so a future change can't silently break a compliance behaviour. Tests run against **23 fixtures**: synthetic, AI-generated, and real-photo community labels.
-
 ---
 
 ## Contents
