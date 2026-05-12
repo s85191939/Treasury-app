@@ -216,3 +216,21 @@ label(
     producer="Old Tom Distillery, Bardstown, KY",
     country=None,
 )
+
+# Kitchen-sink fixture: every regulated field is wrong in a different way.
+# Paired with the OLD TOM application (brand mismatch, class mismatch, ABV
+# mismatch, producer mismatch, net contents mismatch + Standards of Fill,
+# title-case warning header, regular-weight warning). Demonstrates ~all
+# verification rules firing on a single label.
+label(
+    "multi-violation.jpg",
+    bg="#efe7d6", ink="#1f1b16",
+    title="SCRUFFY MOON", subtitle="Imported from Nowhere",
+    class_type="Vodka",
+    abv="50% Alc./Vol. (100 Proof)",
+    net="750 mL",
+    producer="Scruffy Moon Spirits, Lost City, NV",
+    country=None,
+    warning_header_text="Government Warning:",
+    warning_header_bold=False,
+)

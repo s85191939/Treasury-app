@@ -80,6 +80,15 @@ const DEMOS: Demo[] = [
     image: "/samples/wrong-abv.jpg",
     application: SAMPLE,
   },
+  {
+    label: "Spirits — kitchen-sink fail (6 rules + 1 review)",
+    expects: "fail",
+    image: "/samples/multi-violation.jpg",
+    // OLD TOM application but the label is a totally different product —
+    // brand/class/ABV/producer all mismatch. App's 800 mL also fails TTB
+    // Standards of Fill, and the warning header is title-case + regular weight.
+    application: { ...SAMPLE, netContents: "800 mL" },
+  },
 ];
 
 async function fetchImageAsFile(url: string): Promise<File> {

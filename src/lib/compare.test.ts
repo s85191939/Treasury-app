@@ -51,6 +51,17 @@ describe("similarity", () => {
     expect(similarity("HelloWorld", "HelloWorlz")).toBeGreaterThan(0.85);
     expect(similarity("HelloWorld", "Totally Different")).toBeLessThan(0.5);
   });
+
+  // Regression: a buggy in-place Levenshtein corrupted prev[0] each iteration,
+  // which made very different strings of mismatched length return inflated
+  // similarity (e.g. "Vodka" vs "Kentucky Straight Bourbon Whiskey" came back
+  // as 85%, putting a clear-mismatch class type into the Review band).
+  it("rates very different strings of unequal length as near-zero similarity", () => {
+    expect(
+      similarity("Kentucky Straight Bourbon Whiskey", "Vodka"),
+    ).toBeLessThan(0.2);
+    expect(similarity("OLD TOM DISTILLERY", "SCRUFFY MOON")).toBeLessThan(0.2);
+  });
 });
 
 describe("parsePercent", () => {
