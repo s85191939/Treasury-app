@@ -14,91 +14,6 @@ const SAMPLE: LabelApplication = {
   beverageClass: "spirits",
 };
 
-interface Demo {
-  label: string;
-  expects: "pass" | "review" | "fail";
-  image: string;
-  application: LabelApplication;
-}
-
-const DEMOS: Demo[] = [
-  {
-    label: "Spirits — clean label (should pass)",
-    expects: "pass",
-    image: "/samples/old-tom.jpg",
-    application: SAMPLE,
-  },
-  {
-    label: "Spirits — title-case warning header (should fail)",
-    expects: "fail",
-    image: "/samples/altered-warning.jpg",
-    application: SAMPLE,
-  },
-  {
-    label: "Wine — Bordeaux with country of origin (should pass)",
-    expects: "pass",
-    image: "/samples/chateau-margaux.jpg",
-    application: {
-      brandName: "Chateau Margaux",
-      classType: "Red Wine",
-      alcoholContent: "13% Alc./Vol.",
-      netContents: "750 mL",
-      producer: "Chateau Margaux, Margaux, France",
-      originCountry: "France",
-      beverageClass: "wine",
-    },
-  },
-  {
-    label: "Wine under 14% — ABV omitted (should pass via exemption)",
-    expects: "pass",
-    image: "/samples/wine-low-abv-missing.jpg",
-    application: {
-      brandName: "MEADOWBROOK CELLARS",
-      classType: "Chardonnay",
-      alcoholContent: "12.5% Alc./Vol.",
-      netContents: "750 mL",
-      producer: "Meadowbrook Cellars, Sonoma, CA",
-      beverageClass: "wine",
-    },
-  },
-  {
-    label: "Beer — IPA (should pass, ABV optional)",
-    expects: "pass",
-    image: "/samples/beer-ipa.jpg",
-    application: {
-      brandName: "HOPYARD BREWING CO.",
-      classType: "West Coast India Pale Ale",
-      alcoholContent: "6.8% Alc./Vol.",
-      netContents: "355 mL",
-      producer: "Hopyard Brewing Co., Portland, OR",
-      beverageClass: "beer",
-    },
-  },
-  {
-    label: "Spirits — wrong ABV (should fail)",
-    expects: "fail",
-    image: "/samples/wrong-abv.jpg",
-    application: SAMPLE,
-  },
-  {
-    label: "Spirits — kitchen-sink fail (6 rules + 1 review)",
-    expects: "fail",
-    image: "/samples/multi-violation.jpg",
-    // OLD TOM application but the label is a totally different product —
-    // brand/class/ABV/producer all mismatch. App's 800 mL also fails TTB
-    // Standards of Fill, and the warning header is title-case + regular weight.
-    application: { ...SAMPLE, netContents: "800 mL" },
-  },
-];
-
-async function fetchImageAsFile(url: string): Promise<File> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not load sample (${res.status})`);
-  const blob = await res.blob();
-  const filename = url.split("/").pop() ?? "sample.jpg";
-  return new File([blob], filename, { type: blob.type || "image/jpeg" });
-}
-
 export function SingleVerifier() {
   const [form, setForm] = useState<LabelApplication>(SAMPLE);
   const [image, setImage] = useState<File | null>(null);
@@ -136,18 +51,6 @@ export function SingleVerifier() {
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleFile(file);
-  }
-
-  async function loadDemo(demo: Demo) {
-    setError(null);
-    setResult(null);
-    setForm(demo.application);
-    try {
-      const file = await fetchImageAsFile(demo.image);
-      handleFile(file);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load demo");
-    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -195,29 +98,8 @@ export function SingleVerifier() {
             1. Application data
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Enter the fields from the COLA application as submitted — or load
-            one of the included samples.
+            Enter the fields from the COLA application as submitted.
           </p>
-        </div>
-
-        <div className="rounded-xl bg-indigo-50/60 p-3 ring-1 ring-inset ring-indigo-100">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
-            Try a sample
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {DEMOS.map((d) => (
-              <button
-                key={d.image}
-                type="button"
-                onClick={() => loadDemo(d)}
-                disabled={loading}
-                className="rounded-full bg-white px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100 disabled:opacity-50"
-                title={d.label}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

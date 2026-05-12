@@ -36,28 +36,6 @@ old-tom.jpg,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,45% Alc./Vol.,7
 chateau-margaux.jpg,Chateau Margaux,Red Wine,13% Alc./Vol.,750 mL,"Chateau Margaux, Margaux, France",wine,France
 `;
 
-// The full set of fixtures shipped under /public/samples/. Selected by the
-// "Load demo batch" button so reviewers can run a batch without hunting for files.
-const DEMO_BATCH_IMAGES = [
-  "old-tom.jpg",
-  "chateau-margaux.jpg",
-  "wine-low-abv.jpg",
-  "wine-low-abv-missing.jpg",
-  "beer-ipa.jpg",
-  "altered-warning.jpg",
-  "regular-warning.jpg",
-  "wrong-abv.jpg",
-  "riverstone-ai.jpg",
-];
-
-async function fetchFile(url: string, mime: string): Promise<File> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Could not fetch ${url} (${res.status})`);
-  const blob = await res.blob();
-  return new File([blob], url.split("/").pop() ?? "file", {
-    type: blob.type || mime,
-  });
-}
 
 const VALID_CLASSES: ReadonlySet<BeverageClass> = new Set([
   "spirits",
@@ -330,44 +308,8 @@ export function BatchVerifier() {
     URL.revokeObjectURL(url);
   }
 
-  async function loadDemoBatch() {
-    setError(null);
-    try {
-      const csvFile = await fetchFile("/samples/applications.csv", "text/csv");
-      await handleCsv(csvFile);
-      const imageFiles = await Promise.all(
-        DEMO_BATCH_IMAGES.map((name) =>
-          fetchFile(`/samples/${name}`, "image/jpeg"),
-        ),
-      );
-      const map = new Map<string, File>();
-      for (const f of imageFiles) map.set(f.name, f);
-      setFiles(map);
-      setRows((prev) =>
-        prev.map((r) => ({ ...r, file: map.get(r.filename) ?? r.file })),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load demo");
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-indigo-50/60 px-4 py-3 ring-1 ring-inset ring-indigo-100">
-        <p className="text-sm text-indigo-900">
-          <strong>How this works:</strong> upload a CSV of applications, then
-          upload the matching label images — they pair by filename. Or skip
-          straight to the demo:
-        </p>
-        <button
-          type="button"
-          onClick={loadDemoBatch}
-          className="rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
-        >
-          Load 9-label demo batch
-        </button>
-      </div>
-
       <div className="grid gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 md:grid-cols-2">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">
