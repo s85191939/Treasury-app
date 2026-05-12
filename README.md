@@ -267,7 +267,7 @@ src/
    └─ types.ts                # LabelApplication, ExtractedLabel, FieldResult, VerifyResponse
 
 e2e/
-└─ live.spec.ts               # 4 Playwright tests against the live deployment
+└─ live.spec.ts               # 5 Playwright tests against the live deployment
 
 samples/
 ├─ generate.py                # deterministic generator for 8 of 9 fixtures
